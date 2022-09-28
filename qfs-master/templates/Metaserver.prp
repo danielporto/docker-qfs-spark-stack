@@ -1,0 +1,15 @@
+metaServer.clientPort = 20000
+metaServer.chunkServerPort = 30000
+metaServer.logDir = /data/qfs/logs
+metaServer.cpDir = /data/qfs/checkpoint
+metaServer.recoveryInterval = 30
+metaServer.clusterKey = qfs-personal-compute-cluster
+metaServer.msgLogWriter.logLevel = INFO
+chunkServer.msgLogWriter.logLevel = NOTICE
+metaServer.rootDirMode = 0777
+metaServer.rootDirGroup = 1000
+metaServer.rootDirUser = 1000
+
+metaServer.rebalancingEnabled = 1
+metaServer.maxRebalanceSpaceUtilThreshold = 0.50
+metaServer.minRebalanceSpaceUtilThreshold = 0.45

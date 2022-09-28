@@ -1,0 +1,10 @@
+chunkServer.metaServer.hostname = {{ .Env.METASERVER_HOSTNAME }}
+chunkServer.metaServer.port     = {{ .Env.METASERVER_PORT }}
+chunkServer.clientPort = 22000
+chunkServer.chunkDir = /data/qfs/chunk
+chunkServer.clusterKey = {{ .Env.CLUSTER_KEY }}
+chunkServer.stdout = /dev/null
+chunkServer.stderr = /dev/null
+chunkServer.ioBufferPool.partitionBufferCount = 65536
+chunkServer.msgLogWriter.logLevel = INFO
+chunkServer.diskQueue.threadCount = 12
