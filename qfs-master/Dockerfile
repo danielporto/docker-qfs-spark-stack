@@ -14,8 +14,16 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # set configuration
-COPY ./templates/* $QFS_HOME/conf/
+COPY ./templates/qfs/* /templates/qfs/
 COPY start-qfs-master.sh /
+
+# ensure permissions
+RUN mkdir -p $QFS_HOME/conf \
+	&& mkdir -p $QFS_LOGS_DIR \
+	&& chown -R spark /data/qfs /data/spark $SPARK_HOME $QFS_HOME  $QFS_LOGS_DIR \
+    && sudo chmod u+rw /data/qfs /data/spark $SPARK_HOME $QFS_HOME  $QFS_LOGS_DIR \
+	&& chmod 755 /start-qfs-master.sh
+
 
 USER spark
 # create some useful bash aliases for when at bash shell prompt of this image

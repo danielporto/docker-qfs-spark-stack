@@ -11,12 +11,10 @@ networks:
 
 services:
   traefik:
-    image: danielporto/pluribus:traefik_v2.6.1
+    image: danielporto/traefik:v2.8.1
     build:
       context: ./traefik
       dockerfile: Dockerfile
-      args:
-        TRAEFIK_BASE: "v2.6.1"
     restart: unless-stopped
     container_name: traefik
     networks:
@@ -27,11 +25,12 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - vol_gateway_certs:/certs
+      - ./certs:/certs
+
     security_opt:
       - no-new-privileges=true # https://docs.docker.com/engine/reference/run/#security-configuration      
     env_file:
-      - ./env
+      - ./.env
     environment:
       - TRAEFIK_SWARM_MODE=false
   
@@ -50,7 +49,7 @@ services:
     networks:
       - net_traefik
     env_file:
-      - ./env
+      - ./.env
 
   # docker run --rm httpd:2.4-alpine htpasswd -nbB admin 'password' | cut -d ":" -f 2
   portainer:
@@ -60,7 +59,7 @@ services:
     volumes:
       - vol_portainer:/data
     env_file:
-      - ./env
+      - ./.env
     container_name: portainer
     networks:
       - net_traefik
@@ -71,15 +70,34 @@ services:
       - traefik.docker.network=net_traefik  # required when container connects to more than one network
       - traefik.http.services.to-portainer.loadbalancer.server.port=9000
       - traefik.http.routers.to-portainer.rule=Host(`portainer.pluribus.vcap.me`)
-      # - traefik.http.routers.to-portainer.tls=true
-      # - traefik.http.routers.to-portainer.entrypoints=websecure
-      - traefik.http.routers.to-portainer.entrypoints=web
+      - traefik.http.routers.to-portainer.tls=true
+      - traefik.http.routers.to-portainer.entrypoints=websecure
+      # - traefik.http.routers.to-portainer.entrypoints=web
+#==============================================================================================================
+#  Data processing containers
+#==============================================================================================================
 
-#
+#--------------------------------------------------------------------------------------------------------------
+# QFS
+#--------------------------------------------------------------------------------------------------------------
+
+  qfs-master:
+    image: danielporto/qfs-master:latest
+    container_name: qfs-master
+    networks:
+        - net_traefik
+    ports:
+        - 20000:20000
+        - 30000:30000
+        - 20050:20050
+    volumes:
+      - ./volumes/storage/qfs:/data/qfs
+
+#--------------------------------------------------------------------------------------------------------------
 # Spark 
-#
+#--------------------------------------------------------------------------------------------------------------
   spark-master:
-    image: bde2020/spark-master:3.3.0-hadoop3.3
+    image: danielporto/spark-qfs-master:latest
     container_name: spark-master
     networks:
       net_traefik:
@@ -88,69 +106,73 @@ services:
     ports:
       - 8080:8080
       - 7077:7077
+      - 6066:6066
+      - 18080:18080
     env_file:
-      - ./env    
+      - ./.env    
     environment:
       - SPARK_MASTER=spark://spark-master:7077
     volumes:
-      - ./data:/gfs/data
+      - ./volumes/spark:/data/spark
       - ./:/localdata
     labels:
       - traefik.enable=true
       - traefik.docker.network=net_traefik  # required when container connects to more than one network
       - traefik.http.services.to-spark.loadbalancer.server.port=8080
       - traefik.http.routers.to-spark.rule=Host(`spark.pluribus.vcap.me`)
-      # - traefik.http.routers.to-spark.tls=true
-      # - traefik.http.routers.to-spark.entrypoints=websecure
-      - traefik.http.routers.to-spark.entrypoints=web
+      - traefik.http.routers.to-spark.tls=true
+      - traefik.http.routers.to-spark.entrypoints=websecure
+      # - traefik.http.routers.to-spark.entrypoints=web
 
   spark-worker:
-    image: bde2020/spark-worker:3.3.0-hadoop3.3
-    container_name: spark-worker
+    image: danielporto/spark-qfs-worker:latest
+    container_name: worker
     depends_on:
       - spark-master
+      - qfs-master
     # do not use aliases here. replication will make a mess with the server communication
     networks:
       net_traefik:
-    # ports:
-    #   - 8081:8081
-    restart: on-failure
-    volumes:
-      - ./data:/gfs/data
-      - ./:/localdata
-    env_file:
-      - ./env
-    environment:
-      - SPARK_MASTER=spark://spark-master:7077
-      - SERVICE_PRECONDITION=spark-master:7077
-
-  jupyter:
-    image: jupyter/pyspark-notebook:spark-3.3.0
-    container_name: jupyter
-    networks:
-      net_traefik:
-        aliases:
-          - jupyter
-    restart: on-failure
     ports:
-      - 10000:8888
-      - 4040:4040
-      - 4041:4041
-      - 4042:4042
+      - 8081:8081
+    restart: on-failure
     volumes:
-      - .:/home/jovyan/work
-      - ./data:/gfs/data
+      - ./volumes/storage/qfs:/data/qfs
+      - ./volumes/spark:/data/spark
+    env_file:
+      - ./.env
     environment:
       - SPARK_MASTER=spark://spark-master:7077
-    env_file:
-      - ./env
-    command: "start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''"
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=net_traefik  # required when container connects to more than one network
-      - traefik.http.services.to-jupyter.loadbalancer.server.port=8888
-      - traefik.http.routers.to-jupyter.rule=Host(`jupyter.pluribus.vcap.me`)
-      # - traefik.http.routers.to-jupyter.tls=true
-      # - traefik.http.routers.to-jupyter.entrypoints=websecure
-      - traefik.http.routers.to-jupyter.entrypoints=web
+
+#   jupyter:
+#     image: danielporto/jupyter-server:latest
+#     container_name: jupyter-server
+#     depends_on:
+#       - spark-master
+#       - qfs-master
+#       - spark-worker
+#     networks:
+#       net_traefik:
+#     restart: on-failure
+#     ports:
+#       - 7777:7777
+#       - 4040:4040
+#       - 4041:4041
+#       - 4042:4042
+#     volumes:
+#       - ./volumes/jupyter-notebooks:/home/spark/jupyter
+#       - ./volumes/spark:/data/spark
+#     environment:
+#       - SPARK_MASTER=spark://spark-master:7077
+#     env_file:
+#       - ./env
+#     command: "start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''"
+#     labels:
+#       - traefik.enable=true
+#       - traefik.docker.network=net_traefik  # required when container connects to more than one network
+#       - traefik.http.services.to-jupyter.loadbalancer.server.port=8888
+#       - traefik.http.routers.to-jupyter.rule=Host(`jupyter.pluribus.vcap.me`)
+#       # - traefik.http.routers.to-jupyter.tls=true
+#       # - traefik.http.routers.to-jupyter.entrypoints=websecure
+#       - traefik.http.routers.to-jupyter.entrypoints=web
 

@@ -19,15 +19,23 @@ else
 	echo "Building with docker arguments = '$DOCKER_BUILD_ARGS'"
 fi
 
+cd certs
+bash generate-certs.sh 
+cd ..
+. .env
 # build images
-echo "BUILDING danielporto/qfs-base...."
-docker build -t danielporto/qfs-base:latest $DOCKER_BUILD_ARGS ./qfs-base
+echo "BUILDING danielporto/traefik:v2.8.1...."
+docker build -t danielporto/traefik:v2.8.1 $DOCKER_BUILD_ARGS ./traefik
 echo "BUILDING danielporto/spark-qfs-worker...."
-docker build -t danielporto/spark-qfs-worker:latest $DOCKER_BUILD_ARGS ./spark-worker
-echo "BUILDING danielporto/spark-qfs-master...."
+docker build -t danielporto/spark-qfs-worker:latest $DOCKER_BUILD_ARGS ./spark-qfs-worker
+echo "BUILDING danielporto/spark-master...."
 docker build -t danielporto/spark-qfs-master:latest $DOCKER_BUILD_ARGS ./spark-master
 echo "BUILDING danielporto/qfs-master...."
 docker build -t danielporto/qfs-master:latest $DOCKER_BUILD_ARGS ./qfs-master
+
+
+# echo "BUILDING danielporto/jupyter-server...."
+# docker build -t danielporto/jupyter-server:latest $DOCKER_BUILD_ARGS ./jupyter-server
 
 
 # push the images to local repository
