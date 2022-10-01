@@ -1,15 +1,15 @@
 # the total amount of memory a worker (node) can use
-SPARK_WORKER_MEMORY=50g
+SPARK_WORKER_MEMORY={{ .Env.SPARK_WORKER_MEMORY }}
 
 # the total amount of cores a worker (node) can use
-SPARK_WORKER_CORES=12
+SPARK_WORKER_CORES={{ .Env.SPARK_WORKER_CORES }}
 
 # the number of worker processes per node
-SPARK_WORKER_INSTANCES=1
+SPARK_WORKER_INSTANCES={{ .Env.SPARK_WORKER_INSTANCES }}
 
 # the ports the worker will advertise
-SPARK_WORKER_PORT=8881
-SPARK_WORKER_WEBUI_PORT=8081
+SPARK_WORKER_PORT={{ .Env.SPARK_WORKER_PORT }}
+SPARK_WORKER_WEBUI_PORT={{ .Env.SPARK_WORKER_WEBUI_PORT }}
 
 # which python the spark cluster should use for pyspark
 PYSPARK_PYTHON=python3

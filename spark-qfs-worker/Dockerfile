@@ -1,7 +1,14 @@
+ARG SPARK_VERSION=3.3.0
+ARG HADOOP_MAJOR_VERSION=2
+ARG HADOOP_VERSION=2.7.2
+ARG SCALA_VERSION=2.12.15
+ARG QFS_VERSION=2.2.5
+ARG QFS_PACKAGE=qfs-debian-10
+
+
 #--------------------------------------------------------------------------------
-# build and install dockerize to the current proper architecture
+# build and install dockerize to the current architecture
 #--------------------------------------------------------------------------------
-# build and install dockerize to the current proper architecture
 FROM golang:1.17.5-bullseye AS dependencies
 RUN apt update && apt install -y openssl git
 WORKDIR /go/src/github.com/jwilder/dockerize
@@ -12,53 +19,119 @@ RUN set -ex; \
     go mod tidy ;\
     go install
 
+#--------------------------------------------------------------------------------
+# build qfs tarball for the current architecture
+#--------------------------------------------------------------------------------
+FROM debian:buster AS qfsbuild
+ARG QFS_VERSION
+ARG QFS_PACKAGE
 
-#--------------------------------------------------------------------------------
-# build step
-#--------------------------------------------------------------------------------
+RUN apt update \
+    && apt install -y\
+            g++ \
+            cmake \
+            git \
+            libboost-regex-dev \
+            libkrb5-dev \
+            libssl-dev \
+            python-dev \
+            libfuse-dev \
+            zlib1g-dev \
+            unzip \
+            sudo \
+            passwd \
+            curl \
+            openssl \
+            fuse \ 
+            gdb \
+            curl \
+            git \
+            wget \
+            gnupg2 \
+            software-properties-common \
+    && apt clean 
+
+RUN git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.10.2 \
+    && echo ". $HOME/.asdf/asdf.sh" >> /root/.bashrc \
+    && echo ". $HOME/.asdf/completions/asdf.bash" >> /root/.bashrc \
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf plugin-add java https://github.com/halcyon/asdf-java.git" \
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf install java zulu-8.48.3.246" \
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf global java zulu-8.48.3.246" \
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf plugin-add maven" \
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf install maven 3.8.6" \
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf global maven 3.8.6" 
+
+ENV JAVA_HOME="~/.asdf/installs/java/zulu-8.48.3.246"
+WORKDIR /code
+RUN git clone https://github.com/quantcast/qfs.git \
+	&& cd qfs \
+	&& git fetch \
+	&& git checkout ${QFS_VERSION} \
+	&& make \
+	&& make python \
+	&& make tarball \
+	&& ls build 
+
+# repack the tarball to be used in later stages
+RUN cd qfs/build \
+	&& tar xf "qfs-debian-10-${QFS_VERSION}-$(cc -dumpmachine 2>/dev/null | cut -d - -f 1).tgz" \
+	&& mv "qfs-debian-10-${QFS_VERSION}-$(cc -dumpmachine 2>/dev/null | cut -d - -f 1)" ${QFS_PACKAGE} \
+	&& tar czf ${QFS_PACKAGE}.tgz ${QFS_PACKAGE} \
+	&& rm -rf "qfs-debian-10-${QFS_VERSION}-$(cc -dumpmachine 2>/dev/null | cut -d - -f 1)*" ${QFS_PACKAGE}
+
+
 # Base image  cluster with QFS
-#
+
 # https://github.com/DIYBigData/personal-compute-cluster/tree/master/spark-qfs-swarm#
-#
+
 # Expected volumes:
-#	/data/qfs - this is where QFS will store its data
-#
+# 	/data/qfs - this is where QFS will store its data
+
 # Expected service names:
-#	qfs-master - the service where the QFS metaserver runs
+# 	qfs-master - the service where the QFS metaserver runs
+
 FROM python:3.9.14-buster
 LABEL org.opencontainers.image.authors="daniel.porto@gmail.com"
+ARG SPARK_VERSION
+ARG HADOOP_MAJOR_VERSION
+ARG HADOOP_VERSION
+ARG SCALA_VERSION
+ARG QFS_VERSION
+ARG QFS_PACKAGE
+
 
 COPY --from=dependencies /go/bin/dockerize /usr/local/bin
+COPY --from=qfsbuild /code/qfs/build/${QFS_PACKAGE}.tgz /tmp
 
-
-
-ARG QFS_VERSION=2.2.5
-ARG SPARK_VERSION=3.3.0
-ARG HADOOP_MAJOR_VERSION=2
-ARG HADOOP_VERSION=2.7.2
-ARG SCALA_VERSION=2.12.15
 
 
 RUN apt-get update \
- && apt-get install -y locales \
- && dpkg-reconfigure -f noninteractive locales \
- && locale-gen C.UTF-8 \
- && /usr/sbin/update-locale LANG=C.UTF-8 \
- && echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen \
- && locale-gen \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
+	&& apt-get install -y locales \
+	&& dpkg-reconfigure -f noninteractive locales \
+	&& locale-gen C.UTF-8 \
+	&& /usr/sbin/update-locale LANG=C.UTF-8 \
+	&& echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen \
+	&& locale-gen \
+	&& apt-get clean \
+	&& rm -rf /var/lib/apt/lists/*
 
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
 RUN apt-get update \
- && apt-get install -y less curl unzip procps \
-    libboost-regex-dev \
- && pip3 install py4j \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
+	&& apt-get install -y less \
+						  ssh \
+						  curl \
+						  unzip \
+						  procps \
+						  libboost-regex-dev \
+						  rsync \
+						  net-tools \
+						  iputils-ping \
+	&& pip3 install py4j \
+	&& apt-get clean \
+	&& rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONIOENCODING UTF-8
 ENV PIP_DISABLE_PIP_VERSION_CHECK 1
@@ -85,19 +158,25 @@ RUN useradd -m -s /bin/bash spark \
 	&& echo "spark   ALL=(ALL)   NOPASSWD:ALL" >> /etc/sudoers
 
 # QFS
-ARG QFS_PACKAGE=qfs-debian-10-${QFS_VERSION}-x86_64
 ENV QFS_HOME /usr/qfs-${QFS_VERSION}
 ENV QFS_LOGS_DIR /data/qfs/logs
 ENV LD_LIBRARY_PATH ${QFS_HOME}/lib
-ARG QFS_DOWNLOAD_URL="https://s3.amazonaws.com/quantcast-qfs/${QFS_PACKAGE}.tgz"
-RUN echo "Downloading QFS from : ${QFS_DOWNLOAD_URL}\n" \
-	&& curl -L --retry 3 -k \
-	     $QFS_DOWNLOAD_URL \
-	   | gunzip \
-	   | tar x -C /usr/ \
-	&& mv /usr/$QFS_PACKAGE $QFS_HOME \
+
+# ARG QFS_DOWNLOAD_URL="https://s3.amazonaws.com/quantcast-qfs/${QFS_PACKAGE}.tgz"
+# RUN echo "Downloading QFS from : ${QFS_DOWNLOAD_URL}\n" \
+# 	&& curl -L --retry 3 -k \
+# 	     $QFS_DOWNLOAD_URL \
+# 	   | gunzip \
+# 	   | tar x -C /usr/ \
+# 	&& mv /usr/$QFS_PACKAGE $QFS_HOME \
+# 	&& chown -R root:root $QFS_HOME \
+# 	&& ln -s $QFS_HOME /usr/local/qfs
+
+RUN tar xf /tmp/${QFS_PACKAGE}.tgz -C /usr \
+ 	&& mv /usr/$QFS_PACKAGE $QFS_HOME \
 	&& chown -R root:root $QFS_HOME \
 	&& ln -s $QFS_HOME /usr/local/qfs
+
 ENV PATH $PATH:${QFS_HOME}/bin:${QFS_HOME}/bin/tools
 
 RUN mkdir -p /data/qfs/ && chown spark -R /data/qfs
@@ -128,21 +207,21 @@ RUN python3 -m pip install matplotlib \
 						   spark-nlp \
 						   pyyaml
 
-ENV METASERVER_HOSTNAME=qfs-master
-ENV METASERVER_PORT=30000
-ENV CLUSTER_KEY=qfs-personal-compute-cluster
+ENV QFS_METASERVER_HOSTNAME=qfs-master
+ENV QFS_METASERVER_PORT=20000
+ENV QFS_CLUSTER_KEY=qfs-spark-jupyter-stack
 
 # copy templates configurations
 COPY ./templates/qfs/* /templates/qfs/
 COPY ./templates/spark/* /templates/spark/
 COPY start-worker-node.sh /
+COPY update_worker_templates.sh /
 
 # ensure permissions
 RUN mkdir -p $QFS_HOME/conf \
 	&& mkdir -p $QFS_LOGS_DIR \
 	&& chown -R spark /data/qfs /data/spark $SPARK_HOME $QFS_HOME  $QFS_LOGS_DIR \
 	&& chmod +x /start-worker-node.sh
-
 
 # set up command
 USER spark

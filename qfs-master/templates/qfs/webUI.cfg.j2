@@ -1,7 +1,7 @@
 [webserver]
-webServer.metaserverHost = qfs-master
-webServer.metaserverPort = 20000
-webServer.port = 20050
+webServer.metaserverHost = {{ .Env.QFS_METASERVER_HOSTNAME }}
+webServer.metaserverPort = {{ .Env.QFS_METASERVER_PORT }}
+webServer.port = {{ .Env.QFS_WEBSERVER_PORT }}
 webServer.docRoot = /usr/local/qfs/webui/files/
 webServer.host = 0.0.0.0
 webserver.allmachinesfn = /dev/null

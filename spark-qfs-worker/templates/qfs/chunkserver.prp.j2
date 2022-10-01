@@ -1,8 +1,8 @@
-chunkServer.metaServer.hostname = {{ .Env.METASERVER_HOSTNAME }}
-chunkServer.metaServer.port     = {{ .Env.METASERVER_PORT }}
-chunkServer.clientPort = 22000
-chunkServer.chunkDir = /data/qfs/chunk
-chunkServer.clusterKey = {{ .Env.CLUSTER_KEY }}
+chunkServer.metaServer.hostname = {{ .Env.QFS_METASERVER_HOSTNAME }}
+chunkServer.metaServer.port     = {{ .Env.QFS_METASERVER_PORT }}
+chunkServer.clientPort = {{ .Env.QFS_CHUNCKSERVER_CLIENT_PORT }}
+chunkServer.chunkDir = {{ .Env.QFS_CHUNK_DIR }}
+chunkServer.clusterKey = {{ .Env.QFS_CLUSTER_KEY }}
 chunkServer.stdout = /dev/null
 chunkServer.stderr = /dev/null
 chunkServer.ioBufferPool.partitionBufferCount = 65536

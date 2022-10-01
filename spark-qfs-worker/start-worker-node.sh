@@ -1,34 +1,24 @@
 #!/bin/bash
-echo "======================================================================================"
-echo "TEMPLATES:"
-echo "======================================================================================"
-ls /templates
-
+bash /update_worker_templates.sh
 
 echo "======================================================================================"
-echo "BASE IMAGE CONFS - QFS Entrypoint - update configuration"
+echo "START QFS CHUNKSERVER"
 echo "======================================================================================"
- 
-dockerize -template /templates/qfs/chunkserver.prp.j2:${QFS_HOME}/conf/Chunkserver.prp
-
-
-echo "======================================================================================"
-echo "SPARK Entrypoint - update configuration"
-echo "======================================================================================"
- 
-dockerize -template /templates/spark/spark-defaults.conf.j2:$SPARK_HOME/conf/spark-defaults.conf
-dockerize -template /templates/spark/spark-env.sh.j2:$SPARK_HOME/conf/spark-env.sh
-
-
-echo "======================================================================================"
-echo "SPARK Workner node - update configuration"
-echo "======================================================================================"
-
 # start the QFS chunk server
 $QFS_HOME/bin/chunkserver $QFS_HOME/conf/Chunkserver.prp &> $QFS_LOGS_DIR/chunkserver.log &
+sleep 2
+tail $QFS_LOGS_DIR/chunkserver.log
+echo "Chunkserver started"
 
+echo "Ensure existence of QFS spark event dir"
+qfs -mkdir /history/spark-event
+sleep 2
+
+echo "======================================================================================"
+echo "START SPARK WORKER"
+echo "======================================================================================"
 # start the spark worker 
-$SPARK_HOME/sbin/start-slave.sh spark://spark-master:7077
+$SPARK_HOME/sbin/start-worker.sh spark://${SPARK_MASTER_HOSTNAME}:${SPARK_MASTER_PORT}
 
 # now do nothing and do not exit
 while true; do sleep 3600; done

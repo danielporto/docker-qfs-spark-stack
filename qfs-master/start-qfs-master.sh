@@ -1,49 +1,47 @@
 #!/bin/bash
-echo ""
-echo ""
-echo "======================================================================================"
-echo "TEMPLATES"
-echo "======================================================================================"
-find /templates
-
-echo "======================================================================================"
-echo "BASE IMAGE CONFS - QFS Entrypoint - update configuration"
-echo "======================================================================================"
- 
-dockerize -template /templates/qfs/chunkserver.prp.j2:${QFS_HOME}/conf/Chunkserver.prp
-cat ${QFS_HOME}/conf/Chunkserver.prp
-
-echo "======================================================================================"
-echo "SPARK Entrypoint - update configuration"
-echo "======================================================================================"
- 
-dockerize -template /templates/spark/spark-defaults.conf.j2:$SPARK_HOME/conf/spark-defaults.conf
-cat $SPARK_HOME/conf/spark-defaults.conf
-dockerize -template /templates/spark/spark-env.sh.j2:$SPARK_HOME/conf/spark-env.sh
-cat $SPARK_HOME/conf/spark-env.sh
-
-
+bash /update_master_templates.sh
 echo "======================================================================================"
 echo "Data dir content"
 echo "======================================================================================"
 find  /data
-echo "======================================================================================"
-echo "Log dir content"
-echo "======================================================================================"
-ls -la $QFS_LOGS_DIR
-sudo mkdir -p $QFS_LOGS_DIR
-sudo chown spark $QFS_LOGS_DIR
-sudo chmod -R ug+rw $QFS_LOGS_DIR
+
+echo "Ensure existence of QFS LOGS AND CHECKPOINT dirs"
+mkdir -p "${QFS_LOGS_DIR}"
+mkdir -p "${QFS_CHECKPOINT_DIR}"
+mkdir -p "${QFS_CHUNK_DIR}"
+
+sudo chown -R spark ${QFS_LOGS_DIR}
+sudo chown -R spark ${QFS_CHECKPOINT_DIR}
+sudo chown -R spark ${QFS_CHUNK_DIR}
+
+if [ ! -f "${QFS_CHECKPOINT_DIR}/latest" ]; then 
+    $QFS_HOME/bin/metaserver -c $QFS_HOME/conf/Metaserver.prp
+    # qfs -mkdir /history/spark-event
+fi 
 
 echo "======================================================================================"
-echo "QFS Master node - update configuration"
+echo "START QFS METASERVER"
 echo "======================================================================================"
 
 $QFS_HOME/bin/metaserver $QFS_HOME/conf/Metaserver.prp &> $QFS_LOGS_DIR/metaserver.log &
+sleep 2
+tail $QFS_LOGS_DIR/metaserver.log
 
+echo "======================================================================================"
+echo "START QFS WEBUI"
+echo "======================================================================================"
 python2 $QFS_HOME/webui/qfsstatus.py $QFS_HOME/conf/webUI.cfg &> $QFS_LOGS_DIR/webui.log &
+sleep 2
+tail $QFS_LOGS_DIR/webui.log
 
-$QFS_HOME/bin/tools/qfs -fs qfs://qfs-master:20000 -D fs.trash.minPathDepth=2 -runEmptier &
+
+echo "======================================================================================"
+echo "START QFS FILESYSTEM"
+echo "======================================================================================"
+$QFS_HOME/bin/tools/qfs -fs qfs://${QFS_METASERVER_HOSTNAME}:${QFS_METASERVER_PORT} -D fs.trash.minPathDepth=${QFS_TRASH_MINPATHDEPTH} -runEmptier &
+sleep 2
+tail $QFS_LOGS_DIR/metaserver.log
+echo "QFS METASERVER started"
 
 # now do nothing and do not exit
 while true; do sleep 3600; done
