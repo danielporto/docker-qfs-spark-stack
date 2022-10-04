@@ -3,7 +3,8 @@ ARG HADOOP_MAJOR_VERSION=2
 ARG HADOOP_VERSION=2.7.2
 ARG SCALA_VERSION=2.12.15
 ARG QFS_VERSION=2.2.5
-ARG QFS_PACKAGE=qfs-debian-10
+# ARG QFS_PACKAGE=qfs-debian-10
+ARG QFS_PACKAGE=qfs-debian-9-${QFS_VERSION}-x86_64
 
 
 #--------------------------------------------------------------------------------
@@ -19,72 +20,6 @@ RUN set -ex; \
     go mod tidy ;\
     go install
 
-#--------------------------------------------------------------------------------
-# build qfs tarball for the current architecture
-#--------------------------------------------------------------------------------
-FROM debian:buster AS qfsbuild
-ARG QFS_VERSION
-ARG QFS_PACKAGE
-
-RUN apt update \
-    && apt install -y\
-            g++ \
-            cmake \
-            git \
-            libboost-regex-dev \
-            libkrb5-dev \
-            libssl-dev \
-            python-dev \
-            libfuse-dev \
-            zlib1g-dev \
-            unzip \
-            sudo \
-            passwd \
-            curl \
-            openssl \
-            fuse \ 
-            gdb \
-            curl \
-            git \
-            wget \
-            gnupg2 \
-            software-properties-common \
-    && apt clean 
-
-RUN git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.10.2 \
-    && echo ". $HOME/.asdf/asdf.sh" >> /root/.bashrc \
-    && echo ". $HOME/.asdf/completions/asdf.bash" >> /root/.bashrc \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf plugin-add java https://github.com/halcyon/asdf-java.git" \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf list-all java| grep zulu-8| tail -n 1 > /tmp/java_version" \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf install java `cat /tmp/java_version`" \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf global java `cat /tmp/java_version`" \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf plugin-add maven" \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf list-all maven | grep \"^3.8\" | tail -n 1 > /tmp/maven_version" \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf install maven `cat /tmp/maven_version`" \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf global maven `cat /tmp/maven_version`"  \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf where java > /tmp/java_home"  \
-	&& echo ". ~/.asdf/plugins/java/set-java-home.bash" >> ~/.profile \
-	&& echo ". ~/.asdf/plugins/java/set-java-home.bash" >> ~/.bashrc 
-
-
-WORKDIR /code
-RUN bash -c "export JAVA_HOME=`cat /tmp/java_home` && echo \"JAVA_HOME\"; echo \"$JAVA_HOME\" " \
-	&& git clone https://github.com/quantcast/qfs.git \
-	&& cd qfs \
-	&& git fetch \
-	&& git checkout ${QFS_VERSION} \
-	&& bash -c "export JAVA_HOME=`cat /tmp/java_home` && make" \
-	&& bash -c "export JAVA_HOME=`cat /tmp/java_home` && make python" \
-	&& bash -c "export JAVA_HOME=`cat /tmp/java_home` && make tarball" \
-	&& ls build 
-
-# repack the tarball to be used in later stages
-RUN cd qfs/build \
-	&& tar xf "qfs-debian-10-${QFS_VERSION}-$(cc -dumpmachine 2>/dev/null | cut -d - -f 1).tgz" \
-	&& mv "qfs-debian-10-${QFS_VERSION}-$(cc -dumpmachine 2>/dev/null | cut -d - -f 1)" ${QFS_PACKAGE} \
-	&& tar czf ${QFS_PACKAGE}.tgz ${QFS_PACKAGE} \
-	&& rm -rf "qfs-debian-10-${QFS_VERSION}-$(cc -dumpmachine 2>/dev/null | cut -d - -f 1)*" ${QFS_PACKAGE}
-
 
 # Base image  cluster with QFS
 
@@ -96,7 +31,7 @@ RUN cd qfs/build \
 # Expected service names:
 # 	qfs-master - the service where the QFS metaserver runs
 
-FROM python:3.9.14-buster
+FROM python:3.7-stretch
 LABEL org.opencontainers.image.authors="daniel.porto@gmail.com"
 ARG SPARK_VERSION
 ARG HADOOP_MAJOR_VERSION
@@ -107,7 +42,7 @@ ARG QFS_PACKAGE
 
 
 COPY --from=dependencies /go/bin/dockerize /usr/local/bin
-COPY --from=qfsbuild /code/qfs/build/${QFS_PACKAGE}.tgz /tmp
+# COPY --from=qfsbuild /code/qfs/build/${QFS_PACKAGE}.tgz /tmp
 
 
 
@@ -143,17 +78,26 @@ ENV PYTHONIOENCODING UTF-8
 ENV PIP_DISABLE_PIP_VERSION_CHECK 1
 
 
+# # JAVA & SCALA
+# RUN wget -qO - https://adoptopenjdk.jfrog.io/adoptopenjdk/api/gpg/key/public | apt-key add - \
+# 	&& apt update && apt-get install -y software-properties-common \
+# 	&& add-apt-repository --yes https://adoptopenjdk.jfrog.io/adoptopenjdk/deb/ \
+# 	&& apt-get update && apt-get install -y adoptopenjdk-8-hotspot \
+# 	&& apt-get remove scala-library scala  \
+# 	&& curl -o scala-${SCALA_VERSION}.deb https://www.scala-lang.org/files/archive/scala-${SCALA_VERSION}.deb \
+# 	&& dpkg -i scala-${SCALA_VERSION}.deb \
+# 	&& apt-get clean \
+# 	&& rm scala-${SCALA_VERSION}.deb \
+# 	&& rm -rf /var/lib/apt/lists/*
 # JAVA & SCALA
-RUN wget -qO - https://adoptopenjdk.jfrog.io/adoptopenjdk/api/gpg/key/public | apt-key add - \
-	&& apt update && apt-get install -y software-properties-common \
-	&& add-apt-repository --yes https://adoptopenjdk.jfrog.io/adoptopenjdk/deb/ \
-	&& apt-get update && apt-get install -y adoptopenjdk-8-hotspot \
-	&& apt-get remove scala-library scala  \
-	&& curl -o scala-${SCALA_VERSION}.deb https://www.scala-lang.org/files/archive/scala-${SCALA_VERSION}.deb \
-	&& dpkg -i scala-${SCALA_VERSION}.deb \
-	&& apt-get clean \
-	&& rm scala-${SCALA_VERSION}.deb \
-	&& rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+ && apt-get install -y openjdk-8-jre \
+ && apt-get remove scala-library scala  \
+ && curl -o scala-${SCALA_VERSION}.deb https://www.scala-lang.org/files/archive/scala-${SCALA_VERSION}.deb \
+ && dpkg -i scala-${SCALA_VERSION}.deb \
+ && apt-get clean \
+ && rm scala-${SCALA_VERSION}.deb \
+ && rm -rf /var/lib/apt/lists/*
 
 
 # create the user software will run from
@@ -161,25 +105,22 @@ RUN useradd -m -s /bin/bash spark \
 	&& apt update && apt install -y sudo \
 	&& apt-get clean \
 	&& rm -rf /var/lib/apt/lists/* \
+	&& mkdir -p /home/spark/.ssh \
 	&& echo "spark   ALL=(ALL)   NOPASSWD:ALL" >> /etc/sudoers
 
 # QFS
+ARG QFS_PACKAGE
 ENV QFS_HOME /usr/qfs-${QFS_VERSION}
 ENV QFS_LOGS_DIR /data/qfs/logs
 ENV LD_LIBRARY_PATH ${QFS_HOME}/lib
 
-# ARG QFS_DOWNLOAD_URL="https://s3.amazonaws.com/quantcast-qfs/${QFS_PACKAGE}.tgz"
-# RUN echo "Downloading QFS from : ${QFS_DOWNLOAD_URL}\n" \
-# 	&& curl -L --retry 3 -k \
-# 	     $QFS_DOWNLOAD_URL \
-# 	   | gunzip \
-# 	   | tar x -C /usr/ \
-# 	&& mv /usr/$QFS_PACKAGE $QFS_HOME \
-# 	&& chown -R root:root $QFS_HOME \
-# 	&& ln -s $QFS_HOME /usr/local/qfs
-
-RUN tar xf /tmp/${QFS_PACKAGE}.tgz -C /usr \
- 	&& mv /usr/$QFS_PACKAGE $QFS_HOME \
+ARG QFS_DOWNLOAD_URL="https://s3.amazonaws.com/quantcast-qfs/${QFS_PACKAGE}.tgz"
+RUN echo "Downloading QFS from : ${QFS_DOWNLOAD_URL}\n" \
+	&& curl -L --retry 3 -k \
+	     $QFS_DOWNLOAD_URL \
+	   | gunzip \
+	   | tar x -C /usr/ \
+	&& mv /usr/$QFS_PACKAGE $QFS_HOME \
 	&& chown -R root:root $QFS_HOME \
 	&& ln -s $QFS_HOME /usr/local/qfs
 
@@ -213,21 +154,27 @@ RUN python3 -m pip install matplotlib \
 						   spark-nlp \
 						   pyyaml
 
-ENV QFS_METASERVER_HOSTNAME=qfs-master
-ENV QFS_METASERVER_PORT=20000
-ENV QFS_CLUSTER_KEY=qfs-spark-jupyter-stack
-
 # copy templates configurations
 COPY ./templates/qfs/* /templates/qfs/
 COPY ./templates/spark/* /templates/spark/
 COPY start-worker-node.sh /
 COPY update_worker_templates.sh /
+COPY ./sshkeys/* /etc/ssh
+COPY ./sshkeys/* /home/spark/.ssh
 
+# allow connecting to more workers
+RUN	echo "StrictHostKeyChecking no"  >> /etc/ssh/ssh_config \
+	echo "HostKey /etc/ssh/ssh_host_ed25519_key" >> /etc/ssh/ssh_config\
+	echo "HostKey /etc/ssh/ssh_host_rsa_key" >> /etc/ssh/ssh_config \
+	chown -R spark /home/spark \
+	chmod 600 /home/spark/.ssh 
+	
 # ensure permissions
 RUN mkdir -p $QFS_HOME/conf \
 	&& mkdir -p $QFS_LOGS_DIR \
 	&& chown -R spark /data/qfs /data/spark $SPARK_HOME $QFS_HOME  $QFS_LOGS_DIR \
 	&& chmod +x /start-worker-node.sh
+
 
 # set up command
 USER spark

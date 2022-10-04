@@ -128,6 +128,7 @@ services:
         - 20050:20050
     volumes:
       - ./volumes/storage/qfs:/data/qfs
+      - ./volumes/spark:/data/spark
     labels:
       - traefik.enable=true
       - traefik.docker.network=net_traefik  # required when container connects to more than one network
