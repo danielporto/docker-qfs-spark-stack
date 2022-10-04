@@ -55,21 +55,27 @@ RUN git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.10.2 \
     && echo ". $HOME/.asdf/asdf.sh" >> /root/.bashrc \
     && echo ". $HOME/.asdf/completions/asdf.bash" >> /root/.bashrc \
     && bash -c "source $HOME/.asdf/asdf.sh && asdf plugin-add java https://github.com/halcyon/asdf-java.git" \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf install java zulu-8.48.3.246" \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf global java zulu-8.48.3.246" \
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf list-all java| grep zulu-8| tail -n 1 > /tmp/java_version" \
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf install java `cat /tmp/java_version`" \
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf global java `cat /tmp/java_version`" \
     && bash -c "source $HOME/.asdf/asdf.sh && asdf plugin-add maven" \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf install maven 3.8.6" \
-    && bash -c "source $HOME/.asdf/asdf.sh && asdf global maven 3.8.6" 
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf list-all maven | grep \"^3.8\" | tail -n 1 > /tmp/maven_version" \
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf install maven `cat /tmp/maven_version`" \
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf global maven `cat /tmp/maven_version`"  \
+    && bash -c "source $HOME/.asdf/asdf.sh && asdf where java > /tmp/java_home"  \
+	&& echo ". ~/.asdf/plugins/java/set-java-home.bash" >> ~/.profile \
+	&& echo ". ~/.asdf/plugins/java/set-java-home.bash" >> ~/.bashrc 
 
-ENV JAVA_HOME="~/.asdf/installs/java/zulu-8.48.3.246"
+
 WORKDIR /code
-RUN git clone https://github.com/quantcast/qfs.git \
+RUN bash -c "export JAVA_HOME=`cat /tmp/java_home` && echo \"JAVA_HOME\"; echo \"$JAVA_HOME\" " \
+	&& git clone https://github.com/quantcast/qfs.git \
 	&& cd qfs \
 	&& git fetch \
 	&& git checkout ${QFS_VERSION} \
-	&& make \
-	&& make python \
-	&& make tarball \
+	&& bash -c "export JAVA_HOME=`cat /tmp/java_home` && make" \
+	&& bash -c "export JAVA_HOME=`cat /tmp/java_home` && make python" \
+	&& bash -c "export JAVA_HOME=`cat /tmp/java_home` && make tarball" \
 	&& ls build 
 
 # repack the tarball to be used in later stages

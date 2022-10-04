@@ -1,4 +1,4 @@
-# Docker multi-container environment with Glusterfs, Spark and PySpark/Jupyter
+# Docker multi-container environment with QFS, Spark and PySpark/Jupyter
 
 This is it: a Docker multi-container environment with GlusterFS, Spark and Jupyter. 
 
@@ -16,16 +16,15 @@ Run `docker network inspect` on the network (e.g. `docker-glusterfs-spark-jupter
 
 | Service          | Without Proxy                                     | With Proxy                        |
 |------------------|---------------------------------------------------|-----------------------------------|
-| Namenode         | http://localhost:9870 | http://namenode.pluribus.vcap.me  |
-| History server   | http://localhost:8188/applicationhistory          |                                   |
-| Datanode         | http://localhost:9864/                            |                                   |
-| Nodemanager      | http://localhost:8042/node                        |                                   |
-| Resource manager | http://localhost:8088/                            |                                   |
-| Spark master     | http://localhost:8080/                            | http://spark.pluribus.vcap.me     |
-| Spark worker     | http://localhost:8081/                            |                                   |
-| Portainer        | http://localhost:9090                             | http://portainer.pluribus.vcap.me |
-| Jupyter          | http://localhost:10000                            | http://jupyter.pluribus.vcap.me   |
 | Proxy            |                                                   | http://traefik.pluribus.vcap.me   |
+| Portainer        | http://localhost:9090                             | http://portainer.pluribus.vcap.me |
+| Logs             | http://localhost:8070                             | http://logs.pluribus.vcap.me      |
+| Namenode         | http://localhost:9870                             | http://namenode.pluribus.vcap.me  |
+| History server   | http://localhost:8188/applicationhistory          | http://history.pluribus.vcap.me   |
+| QFS master       | http://localhost:20050/                           | http://qfs.pluribus.vcap.me  |
+| Spark master     | http://localhost:8080/                            | http://spark.pluribus.vcap.me     |
+| Spark worker     | http://localhost:8081/                            | http://worker.pluribus.vcap.me    |
+| Jupyter          | http://localhost:10000                            | http://jupyter.pluribus.vcap.me   |
 
 ## Quick Start with Jupyter:
 Navigate to Jupyter website: http://jupyter.pluribus.vcap.me and create a new notebook.

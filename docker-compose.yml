@@ -87,6 +87,8 @@ services:
       - DOZZLE_LEVEL
       - DOZZLE_TAILSIZE
       - DOZZLE_AUTH
+    ports:
+      - 8070:8080
     networks:
       - net_traefik
     labels:
