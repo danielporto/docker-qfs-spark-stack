@@ -2,6 +2,19 @@
 bash /update_worker_templates.sh
 
 echo "======================================================================================"
+echo "Data dir content"
+echo "======================================================================================"
+
+find  /data
+echo "Ensure existence of spark dirs"
+sudo mkdir -p "${SPARK_LOGS_DIR}"
+
+sudo chown -R spark ${SPARK_LOGS_DIR}
+sudo chown -R spark ${SPARK_LOGS_DIR}/..
+
+
+
+echo "======================================================================================"
 echo "START QFS CHUNKSERVER"
 echo "======================================================================================"
 # start the QFS chunk server
@@ -12,6 +25,7 @@ echo "Chunkserver started"
 
 echo "Ensure existence of QFS spark event dir"
 qfs -mkdir /history/spark-event
+qfs -mkdir /user
 sleep 2
 
 echo "======================================================================================"

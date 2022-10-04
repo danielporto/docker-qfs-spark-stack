@@ -30,3 +30,17 @@ if [ ! -f "${DOMAIN}/${DOMAIN}.pem" ]; then
 else  
   echo "Certificate already exists!!!"
 fi
+
+
+	# docker run --rm -it --entrypoint /usr/bin/ssh-keygen -it linuxserver/openssh-server 
+if [ ! -f ../spark-qfs-worker/sshkeys/ssh_host_ed25519_key ]; then 
+		ssh-keygen -N "" -t ed25519 -f ../spark-qfs-worker/sshkeys/ssh_host_ed25519_key ; 
+else 
+		echo "SSH ssh_host_ed25519_key keys already exists, skip."; 
+fi;
+	
+if [ ! -f ../spark-qfs-worker/sshkeys/ssh_host_rsa_key ]; then  
+		ssh-keygen -N "" -t rsa -b 4096 -f ../spark-qfs-worker/sshkeys//ssh_host_rsa_key  ; 
+else 
+		echo "SSH ssh_host_rsa_key keys already exists, skip."; 
+fi;

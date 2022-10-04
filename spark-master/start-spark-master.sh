@@ -16,12 +16,12 @@ echo "==========================================================================
 $SPARK_HOME/sbin/start-master.sh
 echo "Spark master started"
 
-# echo "======================================================================================"
-# echo "START SPARK HISTORY SERVER"
-# echo "======================================================================================"
-# start the Spark history server
-# $SPARK_HOME/sbin/start-history-server.sh
-# echo "Spark history server started"
+echo "======================================================================================"
+echo "START SPARK HISTORY SERVER"
+echo "======================================================================================"
+#start the Spark history server
+$SPARK_HOME/sbin/start-history-server.sh
+echo "Spark history server started"
 
 # now do nothing and do not exit
 while true; do sleep 3600; done
