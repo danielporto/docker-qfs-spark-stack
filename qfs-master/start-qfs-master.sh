@@ -6,9 +6,9 @@ echo "==========================================================================
 find  /data
 
 echo "Ensure existence of QFS LOGS AND CHECKPOINT dirs"
-mkdir -p "${QFS_LOGS_DIR}"
-mkdir -p "${QFS_CHECKPOINT_DIR}"
-mkdir -p "${QFS_CHUNK_DIR}"
+sudo mkdir -p "${QFS_LOGS_DIR}"
+sudo mkdir -p "${QFS_CHECKPOINT_DIR}"
+sudo mkdir -p "${QFS_CHUNK_DIR}"
 
 sudo chown -R spark ${QFS_LOGS_DIR}
 sudo chown -R spark ${QFS_CHECKPOINT_DIR}

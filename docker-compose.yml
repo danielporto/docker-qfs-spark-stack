@@ -81,8 +81,11 @@ services:
   dozzle:
     image: amir20/dozzle:latest
     command: --no-analytics
+    container_name: logs
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - ./.env
     environment:
       - DOZZLE_LEVEL
       - DOZZLE_TAILSIZE
@@ -116,7 +119,9 @@ services:
     env_file:
       - ./.env
     networks:
-        - net_traefik
+        net_traefik:
+          aliases:
+            - qfs-master
     ports:
         - 20000:20000
         - 30000:30000

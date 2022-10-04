@@ -25,13 +25,13 @@ cd ..
 . .env
 # build images
 echo "BUILDING danielporto/traefik:v2.8.1...."
-docker build -t danielporto/traefik:v2.8.1 $DOCKER_BUILD_ARGS ./traefik
+docker build --rm -t danielporto/traefik:v2.8.1 $DOCKER_BUILD_ARGS ./traefik
 echo "BUILDING danielporto/spark-qfs-worker...."
-docker build -t danielporto/spark-qfs-worker:latest $DOCKER_BUILD_ARGS ./spark-qfs-worker
+docker build --rm -t danielporto/spark-qfs-worker:latest $DOCKER_BUILD_ARGS ./spark-qfs-worker
 echo "BUILDING danielporto/spark-master...."
-docker build -t danielporto/spark-qfs-master:latest $DOCKER_BUILD_ARGS ./spark-master
+docker build --rm -t danielporto/spark-qfs-master:latest $DOCKER_BUILD_ARGS ./spark-master
 echo "BUILDING danielporto/qfs-master...."
-docker build -t danielporto/qfs-master:latest $DOCKER_BUILD_ARGS ./qfs-master
+docker build --rm -t danielporto/qfs-master:latest $DOCKER_BUILD_ARGS ./qfs-master
 
 
 # echo "BUILDING danielporto/jupyter-server...."
